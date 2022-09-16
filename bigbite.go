@@ -16,12 +16,12 @@ type S3Client interface {
 }
 
 type Config struct {
-	awsClient       *s3.Client
-	bucketName      *string
-	prefix          *string
-	listContext     context.Context
-	downloadContext context.Context
-	numberOfWorkers int
+	AwsClient       *s3.Client
+	BucketName      *string
+	Prefix          *string
+	ListContext     context.Context
+	DownloadContext context.Context
+	NumberOfWorkers int
 }
 
 // iterate through the bucket
@@ -29,17 +29,17 @@ func Bite(c Config) {
 	jobs := make(chan *string)
 	wg := &sync.WaitGroup{}
 	input := &s3.ListObjectsV2Input{
-		Bucket:            c.bucketName,
-		Prefix:            c.prefix,
+		Bucket:            c.BucketName,
+		Prefix:            c.Prefix,
 		ContinuationToken: nil,
 	}
 
-	wg.Add(c.numberOfWorkers)
+	wg.Add(c.NumberOfWorkers)
 
 	newWorker(c, jobs, wg)
 
 	for {
-		r, err := c.awsClient.ListObjectsV2(c.listContext, input)
+		r, err := c.AwsClient.ListObjectsV2(c.ListContext, input)
 
 		if err != nil {
 			panic(err)
@@ -65,7 +65,7 @@ func Bite(c Config) {
 func newWorker(c Config, jobs chan *string, wg *sync.WaitGroup) {
 	var result chan string = make(chan string)
 
-	for i := 0; i < c.numberOfWorkers; i++ {
+	for i := 0; i < c.NumberOfWorkers; i++ {
 		go fileWorker(c, jobs, result, wg)
 	}
 
@@ -75,16 +75,16 @@ func newWorker(c Config, jobs chan *string, wg *sync.WaitGroup) {
 // worker routine, go through an S3 file from a key and find an allowed asset in the file, send it to the results channel if it is
 func fileWorker(c Config, jobs chan *string, result chan string, wg *sync.WaitGroup) {
 	defer wg.Done()
-	d := manager.NewDownloader(c.awsClient)
+	d := manager.NewDownloader(c.AwsClient)
 
 	for s := range jobs {
 		input := s3.GetObjectInput{
-			Bucket: c.bucketName,
+			Bucket: c.BucketName,
 			Key:    s,
 		}
 
 		b := manager.NewWriteAtBuffer([]byte{})
-		_, err := d.Download(c.downloadContext, b, &input)
+		_, err := d.Download(c.DownloadContext, b, &input)
 
 		if err != nil {
 			panic(err)
